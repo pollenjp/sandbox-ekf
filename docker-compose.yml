@@ -1,0 +1,94 @@
+# nginx -> fluentd -> fluentd -> elasticsearch -> kibana
+---
+services:
+  nginx:
+    image: nginx:latest
+    depends_on:
+      - fluentd_node
+    links:
+      # logging 先の fluentd にリンクする.
+      - fluentd_node
+    ports:
+      - "21337:80"
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: "localhost:24224"
+        tag: "docker.nginx"
+
+  fluentd_node:
+    image: fluent/fluentd:latest
+    depends_on:
+      - fluentd_central
+    links:
+      # conf ファイルで hostname が必要になるため.
+      - fluentd_central
+    restart: always
+    command: >
+      /usr/bin/fluentd -c /fluentd/etc/fluent.conf -v
+    ports:
+      - 24224:24224
+      - 24224:24224/udp
+    volumes:
+      - ./data/fluentd_node/log:/fluentd/log
+      - ./volumes/fluentd_node/etc:/fluentd/etc:ro
+
+  fluentd_central:
+    build: docker/fluentd_central
+    depends_on:
+      - elasticsearch
+    links:
+      - elasticsearch
+    restart: always
+    command: >
+      /usr/bin/fluentd -c /fluentd/etc/fluent.conf -v
+    expose:
+      - 34224
+    volumes:
+      - ./data/fluentd_central/log:/fluentd/log
+      - ./volumes/fluentd_central/etc:/fluentd/etc:ro
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.4.3
+    # image: elasticsearch:8.4.2
+    # build: docker/elasticsearch
+    restart: always
+    # ports:
+    #   - 29200:29200
+    expose:
+      - 29200
+    environment:
+      - discovery.type=single-node
+      - http.port=29200
+      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+      # - node.name=es01
+      # - discovery.seed_hosts=es02,es03
+      # - cluster.initial_master_nodes=es01,es02,es03
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_logs:/usr/share/elasticsearch/logs
+      - elasticsearch_volume:/usr/share/elasticsearch/data
+
+  kibana:
+    image: kibana:8.4.3
+    depends_on:
+      - fluentd_node
+      - fluentd_central
+      - elasticsearch
+    links:
+      - elasticsearch
+    restart: always
+    ports:
+      - 29601:29601
+    volumes:
+      - ./volumes/kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+
+volumes:
+  elasticsearch_volume:
+  elasticsearch_logs:
