@@ -17,7 +17,7 @@ services:
         tag: "docker.nginx"
 
   fluentd_node:
-    image: fluent/fluentd:latest
+    image: fluent/fluentd:v1.15
     depends_on:
       - fluentd_central
     links:
@@ -50,11 +50,7 @@ services:
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.4.3
-    # image: elasticsearch:8.4.2
-    # build: docker/elasticsearch
     restart: always
-    # ports:
-    #   - 29200:29200
     expose:
       - 29200
     environment:
