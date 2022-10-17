@@ -2,6 +2,10 @@
 
 EKF (Elasticsearch + Kibana + Fluentd)
 
+## Structure
+
+nginx -> fluentd -> fluentd -> elasticsearch -> kibana
+
 ## run
 
 ```sh
